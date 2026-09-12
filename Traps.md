@@ -651,3 +651,32 @@ version: '3.8'
 ```
 
 這通常只是警告，不會直接造成啟動失敗。可以移除 `version` 欄位，改用目前的 Compose Specification。
+
+## 23. JWT Secret 太短導致 Backend 無法啟動
+
+### 錯誤
+
+```text
+WeakKeyException: The specified key byte array is 112 bits
+which is not secure enough for any JWT HMAC-SHA algorithm
+```
+
+### 原因
+
+Compose 使用了過短的預設值：
+
+```yaml
+JWT_SECRET: ${JWT_SECRET:-dev-secret-key}
+```
+
+JJWT 的 HMAC signing key 至少需要 256 bits，也就是至少 32 bytes。
+
+### 解法
+
+使用至少 32 bytes 的開發用 secret：
+
+```yaml
+JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production-32bytes}
+```
+
+正式環境應透過環境變數或 Secret 管理工具提供隨機長字串，不要使用文件中的開發用值。
