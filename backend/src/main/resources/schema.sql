@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 初始用户（密码均为 BCrypt 加密后的 "password"）
+-- 初始使用者（密碼均為 BCrypt 加密後的 "password"）
 INSERT INTO users (username, password, role) VALUES
     ('admin', '$2a$10$qgnZePe6crvsk7pHF6F9ie1smsC02slQe3ih6HMpLXwJyD/1/ubi.', 'ADMIN'),
     ('user', '$2a$10$qgnZePe6crvsk7pHF6F9ie1smsC02slQe3ih6HMpLXwJyD/1/ubi.', 'USER')
