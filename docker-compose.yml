@@ -21,6 +21,7 @@ services:
   backend:
     build: ./backend
     environment:
+      DB_HOST: postgres
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-key}

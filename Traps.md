@@ -347,16 +347,16 @@ docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}'
 
 ### 問題
 
-專案要求使用：
+目前專案使用：
+
+```text
+backend/src/main/resources/schema.sql
+```
+
+曾經錯誤掛載成：
 
 ```text
 backend/resources/schema.sql
-```
-
-但 Compose 曾經掛載成：
-
-```text
-backend/db/init.sql
 ```
 
 ### 解法
@@ -365,13 +365,13 @@ backend/db/init.sql
 
 ```yaml
 volumes:
-  - ./backend/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+  - ./backend/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
 ```
 
 目前初始化來源是：
 
 ```text
-backend/resources/schema.sql
+backend/src/main/resources/schema.sql
 ```
 
 ## 13. PostgreSQL 初始化腳本只會執行一次
@@ -549,8 +549,105 @@ npm run dev
 - [ ] backend 使用 Java 17 啟動
 - [ ] backend 監聽 `8080`
 - [ ] frontend 監聽 `5173`
-- [ ] `admin/password` 可以登入
-- [ ] 登入回應包含 JWT
-- [ ] 受保護 API 帶有 `Authorization: Bearer <token>`
-- [ ] `DELETE /api/users/{id}` 使用 ADMIN Token
-- [ ] 修改 schema 後知道是否需要重建 volume
+
+## 19. Compose 掛載不存在的檔案會變成目錄
+
+### 錯誤
+
+```text
+could not read from input file: Is a directory
+```
+
+### 原因
+
+如果主機端的 schema 路徑不存在，Docker Compose 可能會自動建立同名目錄，容器內的 PostgreSQL 就無法把它當成 SQL 檔案讀取。
+
+### 排查
+
+```powershell
+Test-Path .\backend\src\main\resources\schema.sql -PathType Leaf
+```
+
+結果必須是：
+
+```text
+True
+```
+
+### 解法
+
+確認 Compose 使用正確的檔案路徑：
+
+```yaml
+- ./backend/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+```
+
+修正後重建資料庫：
+
+```powershell
+docker compose down -v
+docker compose up -d postgres
+```
+
+## 20. Compose 內 Backend 使用錯誤的資料庫 Host
+
+### 問題
+
+Backend 在 Docker container 內執行，卻使用 `localhost` 連接 PostgreSQL。
+
+### 原因
+
+在 Backend container 內，`localhost` 指的是 Backend 自己，不是 PostgreSQL container。
+
+### 解法
+
+Compose 內的 backend 必須設定：
+
+```yaml
+environment:
+  DB_HOST: postgres
+```
+
+`postgres` 是 Compose service name，會在同一個 Compose network 內解析到資料庫 container。
+
+## 21. Container 狀態是 Created 但沒有啟動
+
+### 排查
+
+```powershell
+docker compose ps -a
+docker compose logs postgres
+```
+
+如果 PostgreSQL 初始化失敗，backend 會因為：
+
+```yaml
+depends_on:
+  postgres:
+    condition: service_healthy
+```
+
+而等待或無法啟動。先修正 PostgreSQL 的錯誤，再重新執行：
+
+```powershell
+docker compose down -v
+docker compose up --build
+```
+
+## 22. Docker Compose `version is obsolete` 警告
+
+### 警告
+
+```text
+the attribute `version` is obsolete, it will be ignored
+```
+
+### 說明
+
+Compose v2 會忽略：
+
+```yaml
+version: '3.8'
+```
+
+這通常只是警告，不會直接造成啟動失敗。可以移除 `version` 欄位，改用目前的 Compose Specification。
