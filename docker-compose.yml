@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: devsecops-task-postgres
+    environment:
+      POSTGRES_DB: taskdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - taskapp-postgres-data:/var/lib/postgresql/data
+      - ./backend/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+
+volumes:
+  taskapp-postgres-data:

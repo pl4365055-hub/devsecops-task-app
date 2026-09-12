@@ -18,6 +18,6 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 -- 初始用户（密码均为 BCrypt 加密后的 "password"）
 INSERT INTO users (username, password, role) VALUES
-    ('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ADMIN'),
-    ('user', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'USER')
+    ('admin', '$2a$10$qgnZePe6crvsk7pHF6F9ie1smsC02slQe3ih6HMpLXwJyD/1/ubi.', 'ADMIN'),
+    ('user', '$2a$10$qgnZePe6crvsk7pHF6F9ie1smsC02slQe3ih6HMpLXwJyD/1/ubi.', 'USER')
 ON CONFLICT (username) DO NOTHING;
