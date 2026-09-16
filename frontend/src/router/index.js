@@ -6,15 +6,25 @@ import Users from '../views/Users.vue'
 
 const routes = [
   { path: '/login', component: Login },
-  { path: '/dashboard', component: Dashboard },
-  { path: '/tasks', component: TaskList },
-  { path: '/users', component: Users, meta: { requiresAdmin: true } },
+  { path: '/dashboard', component: Dashboard, meta: { requiresAuth: true } },
+  { path: '/tasks', component: TaskList, meta: { requiresAuth: true } },
+  {
+    path: '/users',
+    component: Users,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
   { path: '/', redirect: '/login' }
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach((to) => {
+  const isAuthenticated = Boolean(localStorage.getItem('token'))
+
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    return '/login'
+  }
+
   if (to.meta.requiresAdmin && localStorage.getItem('role') !== 'ADMIN') {
     return '/dashboard'
   }
