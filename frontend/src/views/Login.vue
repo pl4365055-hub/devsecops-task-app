@@ -1,6 +1,8 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import api from '../api/index.js'
 
 const router = useRouter()
 const formRef = ref()
@@ -14,8 +16,18 @@ const rules = {
 }
 
 const submit = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (valid) router.push('/dashboard')
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) return
+
+  try {
+    const { data } = await api.post('/auth/login', form)
+    localStorage.setItem('token', data.token)
+    localStorage.setItem('role', data.user.role)
+    await router.push('/dashboard')
+  } catch (err) {
+    const message = err.response?.data?.message || '登录失败，请检查用户名和密码'
+    ElMessage.error(message)
+  }
 }
 </script>
 
