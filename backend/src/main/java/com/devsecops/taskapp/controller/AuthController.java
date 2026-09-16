@@ -32,7 +32,7 @@ public class AuthController {
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         User user = userService.findByUsername(request.username());
         if (user == null || !passwordEncoder.matches(request.password(), user.getPassword())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("用户名或密码错误");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("用户名或密碼錯誤");
         }
 
         String token = jwtService.generateToken(user.getUsername(), user.getRole());

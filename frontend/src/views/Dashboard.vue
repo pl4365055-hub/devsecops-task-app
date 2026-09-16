@@ -31,11 +31,11 @@ const handleMenuSelect = (path) => {
       <el-menu :default-active="activeMenu" :collapse="isCollapsed" @select="handleMenuSelect">
         <el-menu-item index="/dashboard">
           <el-icon><House /></el-icon>
-          <template #title>仪表板</template>
+          <template #title>儀表板</template>
         </el-menu-item>
         <el-menu-item index="/tasks">
           <el-icon><List /></el-icon>
-          <template #title>任务列表</template>
+          <template #title>任務列表</template>
         </el-menu-item>
         <el-menu-item index="/logout">
           <el-icon><SwitchButton /></el-icon>
