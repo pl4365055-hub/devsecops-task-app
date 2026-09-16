@@ -22,6 +22,7 @@ const submit = async () => {
   try {
     const { data } = await api.post('/auth/login', form)
     localStorage.setItem('token', data.token)
+    localStorage.setItem('username', data.user.username)
     localStorage.setItem('role', data.user.role)
     await router.push('/dashboard')
   } catch (err) {

@@ -7,10 +7,14 @@ const router = useRouter()
 const route = useRoute()
 const activeMenu = computed(() => route.path)
 const isCollapsed = ref(false)
+const username = localStorage.getItem('username') || '团队成员'
 const role = localStorage.getItem('role')
 
 const handleMenuSelect = (path) => {
   if (path === '/logout') {
+    localStorage.removeItem('token')
+    localStorage.removeItem('username')
+    localStorage.removeItem('role')
     router.push('/login')
     return
   }
@@ -52,7 +56,7 @@ const handleMenuSelect = (path) => {
     <main class="dashboard-content">
       <div class="welcome-banner">
         <p class="eyebrow">WORKSPACE OVERVIEW</p>
-        <h1>欢迎回来，团队成员</h1>
+        <h1>欢迎回来，{{ username }}</h1>
         <p>从这里查看项目进度，并快速进入你的任务清单。</p>
         <el-button type="primary" @click="router.push('/tasks')">查看任务</el-button>
       </div>
