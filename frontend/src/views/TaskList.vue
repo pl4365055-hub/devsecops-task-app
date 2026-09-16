@@ -1,23 +1,23 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import api from '../api/index.js'
 
 const dialogVisible = ref(false)
 const isEditing = ref(false)
 const formRef = ref()
-const form = reactive({ id: null, title: '', owner: '', status: '待处理', priority: '普通' })
+const form = reactive({ id: null, title: '', description: '', status: 'PENDING', priority: 'MEDIUM', assigneeId: null })
 const rules = {
   title: [{ required: true, message: '请输入任务名称', trigger: 'blur' }],
   owner: [{ required: true, message: '请输入负责人', trigger: 'blur' }],
 }
 
-const tasks = ref([
-  { id: 1, title: '更新依赖安全扫描', owner: 'Alex', status: '进行中', priority: '高' },
-  { id: 2, title: '整理部署文档', owner: 'Mina', status: '待处理', priority: '普通' },
-  { id: 3, title: '验证生产环境备份', owner: 'Kai', status: '已完成', priority: '高' },
-])
+const tasks = ref([])
+const loading = ref(false)
+const errorMessage = ref('')
 
 const resetForm = () => {
-  Object.assign(form, { id: null, title: '', owner: '', status: '待处理', priority: '普通' })
+  Object.assign(form, { id: null, title: '', description: '', status: 'PENDING', priority: 'MEDIUM', assigneeId: null })
 }
 
 const openCreate = () => {
@@ -36,21 +36,59 @@ const saveTask = async () => {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
-  if (isEditing.value) {
-    const index = tasks.value.findIndex((task) => task.id === form.id)
-    if (index !== -1) tasks.value[index] = { ...form }
-  } else {
-    tasks.value.push({ ...form, id: Date.now() })
+  try {
+    const payload = {
+      title: form.title,
+      description: form.description,
+      status: form.status,
+      priority: form.priority,
+      assigneeId: form.assigneeId || null,
+    }
+
+    if (isEditing.value) {
+      const { data } = await api.put(`/tasks/${form.id}`, payload)
+      const index = tasks.value.findIndex((task) => task.id === form.id)
+      if (index !== -1) tasks.value[index] = data
+    } else {
+      const { data } = await api.post('/tasks', payload)
+      tasks.value.push(data)
+    }
+    dialogVisible.value = false
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '保存任务失败')
   }
-  dialogVisible.value = false
 }
 
-const removeTask = (task) => {
-  tasks.value = tasks.value.filter((item) => item.id !== task.id)
+const removeTask = async (task) => {
+  try {
+    await api.delete(`/tasks/${task.id}`)
+    tasks.value = tasks.value.filter((item) => item.id !== task.id)
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '删除任务失败')
+  }
 }
 
-const statusType = (status) => ({ 进行中: 'warning', 已完成: 'success', 待处理: 'info' })[status]
-const priorityType = (priority) => (priority === '高' ? 'danger' : 'info')
+const statusLabel = (status) => ({ IN_PROGRESS: '进行中', COMPLETED: '已完成', PENDING: '待处理' })[status] || status
+const priorityLabel = (priority) => ({ HIGH: '高', MEDIUM: '普通', LOW: '低' })[priority] || priority
+const statusType = (status) => ({ IN_PROGRESS: 'warning', COMPLETED: 'success', PENDING: 'info' })[status]
+const priorityType = (priority) => (priority === 'HIGH' ? 'danger' : 'info')
+
+const loadTasks = async () => {
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    const { data } = await api.get('/tasks')
+    tasks.value = data
+  } catch (error) {
+    errorMessage.value = error.response?.status === 403
+      ? '没有权限查看任务列表'
+      : '任务列表加载失败，请稍后再试'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadTasks)
 </script>
 
 <template>
@@ -64,18 +102,20 @@ const priorityType = (priority) => (priority === '高' ? 'danger' : 'info')
       <el-button type="primary" @click="openCreate">新增任务</el-button>
     </header>
 
+    <el-alert v-if="errorMessage" class="page-alert" :title="errorMessage" type="error" show-icon :closable="false" />
+
     <el-card class="table-card" shadow="never">
-      <el-table :data="tasks" stripe empty-text="目前没有任务">
+      <el-table v-loading="loading" :data="tasks" stripe empty-text="目前没有任务">
         <el-table-column prop="title" label="任务名称" min-width="260" />
-        <el-table-column prop="owner" label="负责人" width="130" />
+        <el-table-column prop="assigneeId" label="负责人 ID" width="130" />
         <el-table-column label="状态" width="130">
           <template #default="{ row }">
-            <el-tag :type="statusType(row.status)">{{ row.status }}</el-tag>
+            <el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="优先级" width="120">
           <template #default="{ row }">
-            <el-tag :type="priorityType(row.priority)" effect="plain">{{ row.priority }}</el-tag>
+            <el-tag :type="priorityType(row.priority)" effect="plain">{{ priorityLabel(row.priority) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
@@ -92,21 +132,25 @@ const priorityType = (priority) => (priority === '高' ? 'danger' : 'info')
         <el-form-item label="任务名称" prop="title">
           <el-input v-model="form.title" placeholder="例如：完成安全扫描" />
         </el-form-item>
-        <el-form-item label="负责人" prop="owner">
-          <el-input v-model="form.owner" placeholder="请输入负责人姓名" />
+        <el-form-item label="描述">
+          <el-input v-model="form.description" type="textarea" placeholder="请输入任务描述" />
+        </el-form-item>
+        <el-form-item label="负责人 ID">
+          <el-input-number v-model="form.assigneeId" :min="1" :step="1" />
         </el-form-item>
         <div class="form-row">
           <el-form-item label="状态">
             <el-select v-model="form.status" style="width: 100%">
-              <el-option label="待处理" value="待处理" />
-              <el-option label="进行中" value="进行中" />
-              <el-option label="已完成" value="已完成" />
+              <el-option label="待处理" value="PENDING" />
+              <el-option label="进行中" value="IN_PROGRESS" />
+              <el-option label="已完成" value="COMPLETED" />
             </el-select>
           </el-form-item>
           <el-form-item label="优先级">
             <el-select v-model="form.priority" style="width: 100%">
-              <el-option label="普通" value="普通" />
-              <el-option label="高" value="高" />
+              <el-option label="低" value="LOW" />
+              <el-option label="普通" value="MEDIUM" />
+              <el-option label="高" value="HIGH" />
             </el-select>
           </el-form-item>
         </div>
