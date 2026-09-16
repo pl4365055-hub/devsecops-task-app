@@ -27,7 +27,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         return userService.delete(id)
                 ? ResponseEntity.noContent().build()

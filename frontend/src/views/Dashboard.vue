@@ -7,6 +7,7 @@ const router = useRouter()
 const route = useRoute()
 const activeMenu = computed(() => route.path)
 const isCollapsed = ref(false)
+const role = localStorage.getItem('role')
 
 const handleMenuSelect = (path) => {
   if (path === '/logout') {
@@ -36,6 +37,10 @@ const handleMenuSelect = (path) => {
         <el-menu-item index="/tasks">
           <el-icon><List /></el-icon>
           <template #title>任務列表</template>
+        </el-menu-item>
+        <el-menu-item v-if="role === 'ADMIN'" index="/users">
+          <el-icon><List /></el-icon>
+          <template #title>用戶列表</template>
         </el-menu-item>
         <el-menu-item index="/logout">
           <el-icon><SwitchButton /></el-icon>
