@@ -47,6 +47,7 @@ Authentication 是確認「你是誰」；authorization 是確認「你能做什
         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 .authorizeHttpRequests(auth -> auth
         .requestMatchers("/api/auth/login").permitAll()
+  .requestMatchers("/api/users/**").hasRole("ADMIN")
         .anyRequest().authenticated())
 .addFilterBefore(jwtAuthenticationFilter,
         UsernamePasswordAuthenticationFilter.class)
@@ -71,6 +72,16 @@ Authentication 是確認「你是誰」；authorization 是確認「你能做什
 | `200` | 驗證成功且允許執行 |
 | `401` | 沒有有效 authentication |
 | `403` | 已 authentication，但沒有足夠權限 |
+
+### API 權限規則
+
+| API | 未登入 | USER | ADMIN |
+| --- | --- | --- | --- |
+| `GET /api/tasks` | 401 | 200 | 200 |
+| `GET /api/users` | 401 | 403 | 200 |
+| `DELETE /api/users/{id}` | 401 | 403 | 200 或 404 |
+
+`/api/users/**` 是 ADMIN-only API；USER 即使持有有效 JWT，也不能存取。
 
 ## 4. JWT Authentication Filter
 
@@ -228,6 +239,60 @@ Write-Host 'TOKEN_STATUS=200'
 $tasks
 ```
 
+### 6.5 驗證 USER 與 ADMIN 的 user API 權限
+
+```powershell
+function Get-Token($username) {
+  $body = @{
+    username = $username
+    password = 'password'
+  } | ConvertTo-Json
+
+  return (Invoke-RestMethod `
+    -Uri 'http://localhost:8080/api/auth/login' `
+    -Method Post `
+    -ContentType 'application/json' `
+    -Body $body).token
+}
+
+$userToken = Get-Token 'user'
+$adminToken = Get-Token 'admin'
+
+$userDenied = $false
+try {
+  Invoke-RestMethod `
+    -Uri 'http://localhost:8080/api/users' `
+    -Method Get `
+    -Headers @{ Authorization = "Bearer $userToken" }
+} catch {
+  $status = [int]$_.Exception.Response.StatusCode
+  if ($status -eq 403) {
+    $userDenied = $true
+    Write-Host 'USER /api/users: 403'
+  } else {
+    throw "USER 預期 403，實際為 $status"
+  }
+}
+
+if (-not $userDenied) {
+  throw 'USER 不應該可以存取 /api/users'
+}
+
+$users = Invoke-RestMethod `
+  -Uri 'http://localhost:8080/api/users' `
+  -Method Get `
+  -Headers @{ Authorization = "Bearer $adminToken" }
+
+Write-Host "ADMIN /api/users: 200, count=$($users.Count)"
+```
+
+預期：
+
+```text
+USER /api/users: 403
+ADMIN /api/users: 200
+```
+
 ## 7. Frontend 登入注意事項
 
 API client 放在：
@@ -254,7 +319,8 @@ if (token && !isLoginRequest) {
 - [ ] 錯誤帳密回傳 401
 - [ ] 未帶 token 存取 `/api/tasks` 回傳 401
 - [ ] 帶 USER token 讀取任務列表回傳 200
-- [ ] ADMIN-only endpoint 對 USER 回傳 403
+- [ ] `/api/users/**` 對 USER 回傳 403
+- [ ] `/api/users/**` 對 ADMIN 回傳 200 或正確的資源狀態
 - [ ] JWT role 轉換為 `ROLE_USER` 或 `ROLE_ADMIN`
 - [ ] token 過期或 secret 不一致時不會被視為已登入
 - [ ] frontend 使用 `data.user.role` 保存 role

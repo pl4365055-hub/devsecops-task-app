@@ -192,6 +192,51 @@ localStorage.setItem('role', data.user.role)
 - [ ] 登入回應包含 token
 - [ ] 沒有 token 存取受保護 API 回傳 401
 - [ ] 有效 USER token 可以讀取一般任務 API
-- [ ] 權限不足的操作回傳 403
+- [ ] `/api/users/**` 只允許 ADMIN token
+- [ ] USER token 存取 `/api/users/**` 被拒絕
+- [ ] 權限不足的操作回傳 403；若回傳 401，應檢查 JWT filter 是否成功建立 authentication
 - [ ] 修改 schema 後已確認是否需要重建 volume
 - [ ] JWT secret 在產生與解析時一致
+
+## 8. `/api/users` 必須由 ADMIN 使用
+
+### 問題
+
+原本只有刪除使用者 endpoint 有 method-level 限制：
+
+```java
+@PreAuthorize("hasRole('ADMIN')")
+```
+
+因此 `GET /api/users` 只要登入即可存取，USER 也能讀取使用者列表。
+
+### 解法
+
+在 SecurityConfig 對整個 user API 加上 ADMIN 限制：
+
+```java
+.requestMatchers("/api/users/**").hasRole("ADMIN")
+```
+
+這會保護：
+
+```text
+GET    /api/users
+DELETE /api/users/{id}
+```
+
+JWT filter 會把 JWT 中的：
+
+```text
+role=ADMIN
+```
+
+轉換成：
+
+```text
+ROLE_ADMIN
+```
+
+因此才能符合 `hasRole("ADMIN")` 的判斷。
+
+若 USER token 實測得到 `401` 而不是 `403`，代表 request 沒有被建立成 authenticated context，應優先檢查 `JwtAuthenticationFilter`、JWT secret 與 `Authorization` header；單純的角色不足應該回傳 `403`。
