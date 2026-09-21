@@ -1,1 +1,19 @@
 trivy-backend-report.json
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Build
+target/
+dist/
+node_modules/
+
+# Logs
+*.log
