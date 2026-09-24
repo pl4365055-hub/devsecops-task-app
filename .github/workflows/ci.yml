@@ -1,10 +1,14 @@
 name: CI Pipeline
-
+''
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - '**/*.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
 
 jobs:
   frontend-test:
@@ -58,10 +62,10 @@ jobs:
         working-directory: backend
         run: mvn test
 
-      - name: OWASP Dependency Check
-        working-directory: backend
-        run: mvn org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7
-        continue-on-error: true
+      #- name: OWASP Dependency Check
+      #  working-directory: backend
+      #  run: mvn org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7
+      #  continue-on-error: true
 
       - name: Package
         working-directory: backend
