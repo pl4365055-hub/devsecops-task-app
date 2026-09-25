@@ -63,3 +63,97 @@ GitLab、GitHub 都把這三種掃描做成內建範本，幾行 YAML 就能啟�
 - 🕰️ **只在 build 時掃一次**：昨天乾淨的映像，今天可能因為新 CVE 公布而變髒。要定期重掃。
 - 🙈 **無限期忽略誤報**：allowlist 每一筆都要附原因和到期日，否則會變成永久的洞。
 - 🧩 **以為一個工具就夠**：三種掃描的盲區不同，缺一個就少一層防線。
+
+---
+
+## 🔎 深入：CI 裡的 OWASP Dependency Check 怎麼運作
+
+ci.yml 的 backend job：
+
+```yaml
+- name: OWASP Dependency Check
+  working-directory: backend
+  run: mvn org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7
+  continue-on-error: true
+```
+
+### 資料流（誰做什麼）
+
+```
+① 建/更新本地漏洞庫
+   OWASP 插件（在 runner 上執行的 Java 程式）
+     → 向 NVD（nvd.nist.gov，NIST 的國家漏洞資料庫）下載 CVE（NVD API JSON feed）
+     → 在 runner 本機建立 H2 資料庫快取
+
+② 掃描比對（全部在 runner 本機完成）
+   讀 pom.xml 解析出的 dependency tree（jar）
+     → 抽取每個 jar 的 vendor / product / version 證據
+     → 比對 CPE（Common Platform Enumeration）與本地 CVE 庫
+     → 輸出 target/dependency-check-report.html
+```
+
+- GitHub Actions 只提供一台臨時虛擬機；**發出下載請求的是插件本身**，不是 GitHub
+- NVD 只提供漏洞資料，**不做掃描**；比對與判斷都在 runner 本機
+
+### ⚠️ CI 環境的三個特性
+
+1. **NVD 快取不會保留**：GitHub-hosted runner 跑完即銷毀，每次 workflow 都重下整份 CVE 庫，這個 step 常跑 5–15 分鐘，是 pipeline 最慢的一環。
+2. **NVD 速率限制**：無 API key 約 5 次請求 / 30 秒（容易超時失敗）；有 key 為 50 次 / 30 秒。優化：申請免費 NVD API key 放 Secrets + 用 `actions/cache` 快取 H2 庫；或加入較快的 Sonatype OSS Index 輔助。
+3. **目前不會擋 pipeline**：`failBuildOnCVSS=7`（CVSS ≥ 7 即失敗）被 `continue-on-error: true` 中和，屬於先觀察的階段；習慣後再移除。
+
+### Backend vs. Frontend 依賴掃描對照
+
+| | Backend | Frontend |
+|---|---|---|
+| Step | OWASP Dependency Check | `npm audit --audit-level=high` |
+| 資料來源 | **NVD**（NIST 政府庫） | **GitHub Advisory Database** |
+| 掃描對象 | pom.xml 解析出的 jar | package-lock.json |
+
+兩者都是 SCA，只是資料庫與工具不同。
+
+> 一句話：OWASP 插件在 runner 上先向 NVD 下載 CVE 建本地庫，再把 Maven 依賴跟它比對；GitHub 給機器、NVD 給資料，掃描發生在 runner 本機。
+
+---
+
+## 🔑 踩坑：沒設定 `secrets.GITLEAKS_LICENSE` 會怎樣
+
+ci.yml 的 security-scan job：
+
+```yaml
+- name: Run Gitleaks
+  uses: gitleaks/gitleaks-action@v2
+  env:
+    GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+```
+
+### 基本行為
+
+- Secret 沒設定時，`${{ secrets.GITLEAKS_LICENSE }}` 展開為**空字串**；GitHub 不會自動提供預設值
+- License 要求來自 **gitleaks-action 官方 Action 的商業條款**，不是 Gitleaks 工具本身（工具是 MIT 開源免費）
+
+| Repo 類型 | 結果 |
+|---|---|
+| Public | ✅ 正常執行，Action 自動偵測公開 repo，不需要 license |
+| Private | ❌ step 失敗，日誌提示 private repo 需要 GITLEAKS_LICENSE |
+
+### Private repo 的三個選項
+
+1. 公開 repo：什麼都不用做
+2. 沿用官方 action：到 gitleaks.io 申購 license，存入 Settings → Secrets and variables → Actions
+3. 不想付費：繞過官方 action，直接用免費的 Gitleaks CLI：
+
+```yaml
+- name: Install and Run Gitleaks
+  run: |
+    curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sh -s -- -b /usr/local/bin
+    gitleaks detect --source . --verbose --redact
+```
+
+### 對 CI 的連帶影響
+
+- 這個 step 沒有 `continue-on-error`，失敗會讓 `security-scan` job 亮紅燈
+- 但 `docker-build` job 只 `needs: [frontend-test, backend-test]`，**不依賴 security-scan**，映像建構與 Trivy 掃描仍會繼續
+
+> 一句話：沒設 license 等於空字串；公開 repo 照跑，私人 repo 這個 step 會失敗，但不影響 docker-build job。
+
+備註：`.github/workflows/security.yml` 目前是空檔案，Gitleaks 只在 ci.yml 裡執行。
