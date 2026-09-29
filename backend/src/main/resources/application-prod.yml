@@ -1,0 +1,4 @@
+enterprise:
+  sso:
+    url: https://sso.company.com
+    api-key: ${SSO_API_KEY}
