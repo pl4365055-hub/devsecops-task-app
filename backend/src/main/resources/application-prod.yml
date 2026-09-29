@@ -1,4 +1,18 @@
-enterprise:
-  sso:
-    url: https://sso.company.com
-    api-key: ${SSO_API_KEY}
+app:
+  auth:
+    mode: sso
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # 對外 issuer（與 Keycloak 簽發 token 中的 iss 宣告一致，供宣告校驗）
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          # 容器內抓 JWK 使用內部位址，繞過對外主機名稱
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
+
+keycloak:
+  url: ${KEYCLOAK_PUBLIC_URL}
+  realm: taskapp
+  client-id: task-app

@@ -18,3 +18,17 @@ mybatis-plus:
 jwt:
   secret: ${JWT_SECRET:dev-secret-key-change-in-production-32bytes}
   expiration: 86400000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# 預設認證模式：本機帳號密碼（prod profile 覆寫為 sso）
+app:
+  auth:
+    mode: local

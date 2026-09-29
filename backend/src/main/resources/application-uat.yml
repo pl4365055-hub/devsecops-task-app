@@ -1,4 +1,2 @@
-enterprise:
-  sso:
-    url: https://sso-dev.company.com
-    api-key: ${SSO_API_KEY}
+# UAT：使用 PostgreSQL users 表進行帳號密碼登入。
+# 資料來源走 application.yml 預設值與 DB_* 環境變數，無額外認證設定。
