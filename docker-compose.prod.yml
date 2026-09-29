@@ -27,9 +27,14 @@ services:
       DB_HOST: postgres
       JWT_SECRET: ${JWT_SECRET}
       SPRING_PROFILES_ACTIVE: prod
+      KEYCLOAK_ISSUER_URI: http://localhost:9080/realms/taskapp
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/taskapp/protocol/openid-connect/certs
+      KEYCLOAK_PUBLIC_URL: http://localhost:9080
     depends_on:
       postgres:
         condition: service_healthy
+      keycloak:
+        condition: service_started
     ports:
       - "8080:8080"
     deploy:
