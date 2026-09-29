@@ -1,8 +1,9 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import api from '../api/index.js'
+import { login, isSso } from '../auth/index.js'
 
 const router = useRouter()
 const formRef = ref()
@@ -14,6 +15,13 @@ const rules = {
     { min: 6, message: '密码至少需要 6 个字符', trigger: 'blur' },
   ],
 }
+
+// SSO 模式不顯示表單，直接跳轉 Keycloak
+onMounted(() => {
+  if (isSso()) {
+    login()
+  }
+})
 
 const submit = async () => {
   const valid = await formRef.value?.validate().catch(() => false)
@@ -34,7 +42,7 @@ const submit = async () => {
 
 <template>
   <main class="login-page">
-    <el-card class="login-card" shadow="never">
+    <el-card v-if="!isSso()" class="login-card" shadow="never">
       <div class="brand-mark">TASK / OPS</div>
       <h1>欢迎回来</h1>
       <p class="subtitle">登录以管理你的 DevSecOps 任务</p>
