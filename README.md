@@ -302,6 +302,65 @@ http://localhost:5173/login
 - Backend 在 Compose container 內執行時，`DB_HOST=postgres`
 - 不要把這兩種設定混用
 
+## 多環境認證（Build Once, Deploy Many）
+
+同一個後端映像檔，認證方式完全由 `SPRING_PROFILES_ACTIVE` 決定；敏感值一律由環境變數注入，不打包進映像檔。
+
+| Profile | 認證方式 | 憑證來源 | Token |
+|---|---|---|---|
+| `dev` | Mock 登入（不檢查密碼、不需資料庫） | 記憶體假使用者 | 應用自簽 JWT |
+| `uat` | 帳號密碼登入 | PostgreSQL `users` 表（schema.sql 初始化） | 應用自簽 JWT |
+| `prod` | Keycloak SSO，後端為 OAuth2 Resource Server | Keycloak 簽發、後端 JWK 驗章 | Keycloak JWT |
+| `test` | 同 uat（整合測試用） | Testcontainers PostgreSQL | 應用自簽 JWT |
+
+前端啟動時呼叫 `GET /api/auth/config` 自動發現認證模式：`local` 顯示帳號密碼表單，`sso` 跳轉 Keycloak 登入頁（Authorization Code + PKCE）。
+
+### dev（Mock，免資料庫）
+
+```powershell
+docker compose -f docker-compose.dev.yml up
+```
+
+可用帳號（密碼任意）：
+
+```text
+admin / 任意密碼  -> ADMIN
+user  / 任意密碼  -> USER
+```
+
+### uat（資料庫帳號密碼，預設 compose）
+
+```powershell
+docker compose up --build
+```
+
+帳號：`admin / password`、`user / password`。
+
+### prod（Keycloak SSO）
+
+先啟動 Keycloak（首次會自動匯入 `taskapp` realm 與測試使用者）：
+
+```powershell
+docker compose -f docker-compose.keycloak.yml up -d
+```
+
+再以 prod compose 啟動應用（需提供 `.env` 中的 `REGISTRY`、`IMAGE_TAG`、`DB_*`、`JWT_SECRET`）：
+
+```powershell
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Keycloak 位址與帳號：
+
+```text
+Keycloak:    http://localhost:9080
+管理控制台:  admin / admin
+測試使用者:  admin / password、user / password
+Realm 設定:  infra/keycloak/realm-export.json
+```
+
+Realm 檔案定義了 `taskapp` realm、public client `task-app`（啟用 PKCE）、`ADMIN`/`USER` realm roles 及兩個測試使用者。
+
 ## 相關文件
 
 - [Lab01_frontend.md](Lab01_frontend.md)
