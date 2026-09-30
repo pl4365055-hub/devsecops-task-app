@@ -308,20 +308,20 @@ http://localhost:5173/login
 
 | Profile | 認證方式 | 憑證來源 | Token |
 |---|---|---|---|
-| `dev` | Mock 登入（不檢查密碼、不需資料庫） | 記憶體假使用者 | 應用自簽 JWT |
+| `dev` | Mock 登入（不檢查密碼） | 記憶體假使用者（登入）；任務模組仍用 PostgreSQL | 應用自簽 JWT |
 | `uat` | 帳號密碼登入 | PostgreSQL `users` 表（schema.sql 初始化） | 應用自簽 JWT |
 | `prod` | Keycloak SSO，後端為 OAuth2 Resource Server | Keycloak 簽發、後端 JWK 驗章 | Keycloak JWT |
 | `test` | 同 uat（整合測試用） | Testcontainers PostgreSQL | 應用自簽 JWT |
 
 前端啟動時呼叫 `GET /api/auth/config` 自動發現認證模式：`local` 顯示帳號密碼表單，`sso` 跳轉 Keycloak 登入頁（Authorization Code + PKCE）。
 
-### dev（Mock，免資料庫）
+### dev（Mock 登入）
 
 ```powershell
 docker compose -f docker-compose.dev.yml up
 ```
 
-可用帳號（密碼任意）：
+此環境會一併啟動 PostgreSQL（任務模組需要），但**登入不檢查密碼、不查 users 表**。可用帳號（密碼任意）：
 
 ```text
 admin / 任意密碼  -> ADMIN
