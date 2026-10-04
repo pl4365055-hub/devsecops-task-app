@@ -1,4 +1,4 @@
-# build-images.ps1 — 構建不可變應用鏡像（Build Once）
+﻿# build-images.ps1 — 構建不可變應用鏡像（Build Once）
 # 用法：先設定環境變數 REGISTRY、IMAGE_TAG 再執行
 #       $env:REGISTRY="fantasy15"; $env:IMAGE_TAG="v2"; pwsh -File .\build-images.ps1
 #
