@@ -345,14 +345,16 @@ user  / 任意密碼  -> USER
 
 ### uat（資料庫帳號密碼，預設 compose）
 
-預設 compose 是開發導向（含 `build:`）。在 build-once 流程下，可直接引用已構建好的鏡像：
+預設 compose 不指定環境時跑 `dev`（Mock 登入）。要以 UAT（DB 帳密）啟動，啟動前把 profile 切成 `uat`：
 
 ```powershell
-$env:IMAGE_TAG = "v2"
-docker compose up -d
+$env:SPRING_PROFILES_ACTIVE = "uat"
+docker compose up --build
 ```
 
-帳號：`admin / password`、`user / password`。
+此模式由 `DbAuthenticationService` 查 `users` 表並以 BCrypt 驗證密碼。帳號：`admin / password`、`user / password`。
+
+> 在 Build Once 流程下，UAT 也可直接引用已構建好的同一個鏡像 tag（如 v2），認證差異僅由 `SPRING_PROFILES_ACTIVE=uat` 決定。
 
 ### prod（Keycloak SSO）
 
