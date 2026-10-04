@@ -18,6 +18,8 @@ services:
 
   backend:
     image: ${REGISTRY}/task-app-backend:${IMAGE_TAG}
+    build:
+      context: ./backend
     restart: always
     environment:
       DB_USERNAME: ${DB_USERNAME}
@@ -48,6 +50,8 @@ services:
 
   frontend:
     image: ${REGISTRY}/task-app-frontend:${IMAGE_TAG}
+    build:
+      context: ./frontend
     restart: always
     depends_on:
       - backend
