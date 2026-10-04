@@ -315,6 +315,21 @@ http://localhost:5173/login
 
 前端啟動時呼叫 `GET /api/auth/config` 自動發現認證模式：`local` 顯示帳號密碼表單，`sso` 跳轉 Keycloak 登入頁（Authorization Code + PKCE）。
 
+### 構建一次（Build Once）
+
+鏡像只構建一次，不繫結任何環境；版本用 tag（如 `v2`），不要用環境名：
+
+```powershell
+# 預設 REGISTRY=fantasy15、IMAGE_TAG=v2，可用環境變數覆寫
+pwsh -File .\build-images.ps1
+
+# 或手動構建
+docker build -t fantasy15/task-app-backend:v2  ./backend
+docker build -t fantasy15/task-app-frontend:v2 ./frontend
+```
+
+之後各環境都引用**同一個 tag**；認證差異只由該環境的 `SPRING_PROFILES_ACTIVE` 與環境變數決定。
+
 ### dev（Mock 登入）
 
 ```powershell
@@ -330,24 +345,30 @@ user  / 任意密碼  -> USER
 
 ### uat（資料庫帳號密碼，預設 compose）
 
+預設 compose 是開發導向（含 `build:`）。在 build-once 流程下，可直接引用已構建好的鏡像：
+
 ```powershell
-docker compose up --build
+$env:IMAGE_TAG = "v2"
+docker compose up -d
 ```
 
 帳號：`admin / password`、`user / password`。
 
 ### prod（Keycloak SSO）
 
-先啟動 Keycloak（首次會自動匯入 `taskapp` realm 與測試使用者）：
+**Step 1：** 啟動 Keycloak（首次會自動匯入 `taskapp` realm 與測試使用者）：
 
 ```powershell
 docker compose -f docker-compose.keycloak.yml up -d
 ```
 
-再以 prod compose 啟動應用（需提供 `.env` 中的 `REGISTRY`、`IMAGE_TAG`、`DB_*`、`JWT_SECRET`）：
+**Step 2：** 確認已按上方「構建一次」構建好 `v2`，且 `.env` 中 `IMAGE_TAG=v2`（其餘 `REGISTRY`、`DB_*`、`JWT_SECRET` 一併提供）。
+
+**Step 3：** 部署——只引用鏡像、不在部署時構建：
 
 ```powershell
 docker compose -f docker-compose.prod.yml up -d
+# 或在有 Registry 的環境：pwsh -File .\deploy.ps1（pull + up）
 ```
 
 > Keycloak 與 prod 應用是**獨立 compose project、不同 network**，因此 prod backend 不透過服務名稱呼叫 Keycloak，而是經 `host.docker.internal:9080`（宿主機映射埠）抓取 JWK，見 compose 中的 `KEYCLOAK_JWK_SET_URI` 與 `extra_hosts`。請確認 Keycloak 已先啟動且 `http://localhost:9080` 可連線。

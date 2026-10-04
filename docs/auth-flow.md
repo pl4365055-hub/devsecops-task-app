@@ -2,6 +2,8 @@
 
 本文件梳理前端、後端與 Keycloak 之間的認證與授權流程，對應 `sso` 分支的實作。
 
+> 構建與部署分離（Build Once, Deploy Many）：鏡像只構建一次、不繫結環境（`build-images.ps1`），部署只引用同一個鏡像 tag（prod compose 沒有 `build:`）；認證模式於運行時由 `SPRING_PROFILES_ACTIVE` 與 `/api/auth/config` 決定。
+
 ## 1. 兩個正交維度：isSso 與 isLogin
 
 `isSso` 與 `isLogin` 不是「or」關係，而是兩個獨立維度：
