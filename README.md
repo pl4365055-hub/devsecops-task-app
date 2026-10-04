@@ -350,6 +350,8 @@ docker compose -f docker-compose.keycloak.yml up -d
 docker compose -f docker-compose.prod.yml up -d
 ```
 
+> Keycloak 與 prod 應用是**獨立 compose project、不同 network**，因此 prod backend 不透過服務名稱呼叫 Keycloak，而是經 `host.docker.internal:9080`（宿主機映射埠）抓取 JWK，見 compose 中的 `KEYCLOAK_JWK_SET_URI` 與 `extra_hosts`。請確認 Keycloak 已先啟動且 `http://localhost:9080` 可連線。
+
 Keycloak 位址與帳號：
 
 ```text
