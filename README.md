@@ -367,3 +367,4 @@ Realm 檔案定義了 `taskapp` realm、public client `task-app`（啟用 PKCE�
 - [Lab02_backend.md](Lab02_backend.md)
 - [Lab03_docker-compose.md](Lab03_docker-compose.md)
 - [Traps.md](Traps.md)
+- [docs/auth-flow.md](docs/auth-flow.md)：多環境認證流程梳理（local / SSO、時序圖）
