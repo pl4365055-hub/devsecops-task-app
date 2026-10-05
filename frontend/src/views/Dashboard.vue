@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { House, List, SwitchButton } from '@element-plus/icons-vue'
+import { logout } from '../auth/index.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -12,10 +13,11 @@ const role = localStorage.getItem('role')
 
 const handleMenuSelect = (path) => {
   if (path === '/logout') {
-    localStorage.removeItem('token')
-    localStorage.removeItem('username')
-    localStorage.removeItem('role')
-    router.push('/login')
+    // SSO 模式會跳轉 Keycloak 登出；local 模式只清本機狀態
+    logout()
+    if (!window.location.pathname.endsWith('/login')) {
+      router.push('/login')
+    }
     return
   }
   router.push(path)

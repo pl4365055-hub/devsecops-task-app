@@ -19,7 +19,7 @@ services:
   backend:
     image: maven:3.9-eclipse-temurin-17
     working_dir: /app
-    command: mvn spring-boot:run -Dspring-boot.run.jvmArguments="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+    command: mvn clean spring-boot:run -Dspring-boot.run.jvmArguments="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
     volumes:
       - ./backend:/app
       - maven-repo:/root/.m2
@@ -28,6 +28,7 @@ services:
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
       JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production-32bytes}
+      SPRING_PROFILES_ACTIVE: dev
       SPRING_DEVTOOLS_REMOTE_SECRET: devsecret
     depends_on:
       postgres:

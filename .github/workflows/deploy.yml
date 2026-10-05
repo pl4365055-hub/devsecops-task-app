@@ -1,0 +1,57 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*'  # 推送 v1, v2 等 tag 时触发
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY }}/task-app-backend:${{ github.ref_name }}
+            ${{ secrets.REGISTRY }}/task-app-backend:latest
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY }}/task-app-frontend:${{ github.ref_name }}
+            ${{ secrets.REGISTRY }}/task-app-frontend:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production  # GitHub Environment，可配置审批
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/task-app
+            export IMAGE_TAG=${{ github.ref_name }}
+            export REGISTRY=${{ secrets.REGISTRY }}
+            export DB_USERNAME=${{ secrets.DB_USERNAME }}
+            export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            export JWT_SECRET=${{ secrets.JWT_SECRET }}
+            bash deploy.sh

@@ -1,0 +1,4 @@
+# dev 環境：
+# 登入使用 MockAuthenticationService（不檢查密碼，見 @Profile("dev")）。
+# 任務模組仍需要資料庫，故保留資料來源與 MyBatis-Plus 自動配置；
+# PostgreSQL 由 docker-compose.dev.yml 一併啟動。

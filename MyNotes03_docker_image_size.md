@@ -86,10 +86,36 @@ frontend/Dockerfile
 
 ### ⚠️ 注意：本機 build cache 仍然佔硬碟
 
-多階段只讓「最終映像」不含 build stage，但 Docker 為了 cache 會把中間映像留在本機（`docker images` 裡的 `<none>` dangling images）：
+多階段只讓「最終映像」不含 build stage，但 Docker 為了 cache 會把中間結果留在本機。
 
-- 最終映像小 → 拉取、部署、掃描都快 ✅
-- 本機 cache 仍佔空間 → 用 `docker image prune` / `docker builder prune` 清理
+**Cache 到底是什麼？** 不是「build 時用到的文件」，而是 Dockerfile 裡**每一條指令跑完的結果備份**：
+
+```dockerfile
+COPY pom.xml .                          # 這層的結果被快取
+RUN mvn dependency:go-offline -B        # 下載的 .m2 依賴被快取 ← 最有價值
+COPY src ./src                          # 改程式碼後，這層開始失效
+RUN mvn package -DskipTests -B          # 連帶重跑
+```
+
+下次 build 時，輸入（指令內容 + 複製進去的文件）沒變的層就直接重用、不重跑。Cache 的唯一目的是「**讓下次 build 快**」，不是這次 build 的必需品。
+
+**刪掉 cache 的影響：**
+
+| | 結果 |
+|---|---|
+| 好處 | 回收硬碟空間（maven 依賴、npm 套件那幾百 MB） |
+| 代價 | 下次 build 全部重跑：重新下載 `.m2`、重跑 `npm ci`，第一次明顯變慢 |
+| 不影響 | 既有 image、執行中的容器（最終映像獨立存在，不依賴 cache） |
+
+實務取捨：
+
+- 開發中、頻繁改程式重 build → 留著省時間
+- 硬碟不足 / build 行為怪異 / CI 想做乾淨驗證 → 大膽刪，頂多慢一次
+
+兩種佔空間的東西要分開清：
+
+- `<none>` dangling images（`docker images` 看得到）→ `docker image prune`
+- BuildKit build cache（`docker images` 看不到，用 `docker buildx du` 看）→ `docker builder prune`
 
 ### 🔎 驗證指令
 

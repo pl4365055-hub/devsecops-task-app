@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { login, isAuthenticated } from '../auth/index.js'
 import Login from '../views/Login.vue'
 import Dashboard from '../views/Dashboard.vue'
 import TaskList from '../views/TaskList.vue'
@@ -19,10 +20,11 @@ const routes = [
 const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach((to) => {
-  const isAuthenticated = Boolean(localStorage.getItem('token'))
+  const authenticated = isAuthenticated()
 
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    return '/login'
+  if (to.meta.requiresAuth && !authenticated) {
+    // SSO 模式直接跳轉 Keycloak 登入頁；local 模式回表單頁
+    return login() ?? '/login'
   }
 
   if (to.meta.requiresAdmin && localStorage.getItem('role') !== 'ADMIN') {

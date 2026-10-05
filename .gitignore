@@ -14,6 +14,8 @@ trivy-backend-report.json
 target/
 dist/
 node_modules/
+.m2-repo/
+.npm-cache/
 
 # Logs
 *.log

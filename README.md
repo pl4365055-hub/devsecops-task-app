@@ -302,9 +302,94 @@ http://localhost:5173/login
 - Backend 在 Compose container 內執行時，`DB_HOST=postgres`
 - 不要把這兩種設定混用
 
+## 多環境認證（Build Once, Deploy Many）
+
+同一個後端映像檔，認證方式完全由 `SPRING_PROFILES_ACTIVE` 決定；敏感值一律由環境變數注入，不打包進映像檔。
+
+| Profile | 認證方式 | 憑證來源 | Token |
+|---|---|---|---|
+| `dev` | Mock 登入（不檢查密碼） | 記憶體假使用者（登入）；任務模組仍用 PostgreSQL | 應用自簽 JWT |
+| `uat` | 帳號密碼登入 | PostgreSQL `users` 表（schema.sql 初始化） | 應用自簽 JWT |
+| `prod` | Keycloak SSO，後端為 OAuth2 Resource Server | Keycloak 簽發、後端 JWK 驗章 | Keycloak JWT |
+| `test` | 同 uat（整合測試用） | Testcontainers PostgreSQL | 應用自簽 JWT |
+
+前端啟動時呼叫 `GET /api/auth/config` 自動發現認證模式：`local` 顯示帳號密碼表單，`sso` 跳轉 Keycloak 登入頁（Authorization Code + PKCE）。
+
+### 構建一次（Build Once）
+
+鏡像只構建一次，不繫結任何環境；版本用 tag（如 `v2`），不要用環境名：
+
+```powershell
+# 預設 REGISTRY=fantasy15、IMAGE_TAG=v2，可用環境變數覆寫
+pwsh -File .\build-images.ps1
+
+# 或手動構建
+docker build -t fantasy15/task-app-backend:v2  ./backend
+docker build -t fantasy15/task-app-frontend:v2 ./frontend
+```
+
+之後各環境都引用**同一個 tag**；認證差異只由該環境的 `SPRING_PROFILES_ACTIVE` 與環境變數決定。
+
+### dev（Mock 登入）
+
+```powershell
+docker compose -f docker-compose.dev.yml up
+```
+
+此環境會一併啟動 PostgreSQL（任務模組需要），但**登入不檢查密碼、不查 users 表**。可用帳號（密碼任意）：
+
+```text
+admin / 任意密碼  -> ADMIN
+user  / 任意密碼  -> USER
+```
+
+### uat（資料庫帳號密碼，預設 compose）
+
+預設 compose 不指定環境時跑 `dev`（Mock 登入）。要以 UAT（DB 帳密）啟動，啟動前把 profile 切成 `uat`：
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = "uat"
+docker compose up --build
+```
+
+此模式由 `DbAuthenticationService` 查 `users` 表並以 BCrypt 驗證密碼。帳號：`admin / password`、`user / password`。
+
+> 在 Build Once 流程下，UAT 也可直接引用已構建好的同一個鏡像 tag（如 v2），認證差異僅由 `SPRING_PROFILES_ACTIVE=uat` 決定。
+
+### prod（Keycloak SSO）
+
+**Step 1：** 啟動 Keycloak（首次會自動匯入 `taskapp` realm 與測試使用者）：
+
+```powershell
+docker compose -f docker-compose.keycloak.yml up -d
+```
+
+**Step 2：** 確認已按上方「構建一次」構建好 `v2`，且 `.env` 中 `IMAGE_TAG=v2`（其餘 `REGISTRY`、`DB_*`、`JWT_SECRET` 一併提供）。
+
+**Step 3：** 部署——只引用鏡像、不在部署時構建：
+
+```powershell
+docker compose -f docker-compose.prod.yml up -d
+# 或在有 Registry 的環境：pwsh -File .\deploy.ps1（pull + up）
+```
+
+> Keycloak 與 prod 應用是**獨立 compose project、不同 network**，因此 prod backend 不透過服務名稱呼叫 Keycloak，而是經 `host.docker.internal:9080`（宿主機映射埠）抓取 JWK，見 compose 中的 `KEYCLOAK_JWK_SET_URI` 與 `extra_hosts`。請確認 Keycloak 已先啟動且 `http://localhost:9080` 可連線。
+
+Keycloak 位址與帳號：
+
+```text
+Keycloak:    http://localhost:9080
+管理控制台:  admin / admin
+測試使用者:  admin / password、user / password
+Realm 設定:  infra/keycloak/realm-export.json
+```
+
+Realm 檔案定義了 `taskapp` realm、public client `task-app`（啟用 PKCE）、`ADMIN`/`USER` realm roles 及兩個測試使用者。
+
 ## 相關文件
 
 - [Lab01_frontend.md](Lab01_frontend.md)
 - [Lab02_backend.md](Lab02_backend.md)
 - [Lab03_docker-compose.md](Lab03_docker-compose.md)
 - [Traps.md](Traps.md)
+- [docs/auth-flow.md](docs/auth-flow.md)：多環境認證流程梳理（local / SSO、時序圖）
